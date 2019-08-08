@@ -1,5 +1,5 @@
 /**
- * Copyright 2018 Nikita Koksharov
+ * Copyright (c) 2013-2019 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,8 +61,6 @@ import org.redisson.liveobject.misc.ClassUtils;
 import org.redisson.liveobject.misc.Introspectior;
 import org.redisson.liveobject.resolver.NamingScheme;
 
-import io.netty.util.internal.PlatformDependent;
-
 /**
  * 
  * @author Rui Gu
@@ -71,19 +69,23 @@ import io.netty.util.internal.PlatformDependent;
  */
 public class RedissonObjectBuilder {
 
-    private static final Map<Class<?>, Class<? extends RObject>> supportedClassMapping = new LinkedHashMap<Class<?>, Class<? extends RObject>>();
-    ConcurrentMap<String, NamingScheme> namingSchemeCache = PlatformDependent.newConcurrentHashMap();
+    private static final Map<Class<?>, Class<? extends RObject>> SUPPORTED_CLASS_MAPPING = new LinkedHashMap<>();
+    private static final Map<Class<?>, CodecMethodRef> REFERENCES = new HashMap<>();
     
     static {
-        supportedClassMapping.put(SortedSet.class,      RedissonSortedSet.class);
-        supportedClassMapping.put(Set.class,            RedissonSet.class);
-        supportedClassMapping.put(ConcurrentMap.class,  RedissonMap.class);
-        supportedClassMapping.put(Map.class,            RedissonMap.class);
-        supportedClassMapping.put(BlockingDeque.class,  RedissonBlockingDeque.class);
-        supportedClassMapping.put(Deque.class,          RedissonDeque.class);
-        supportedClassMapping.put(BlockingQueue.class,  RedissonBlockingQueue.class);
-        supportedClassMapping.put(Queue.class,          RedissonQueue.class);
-        supportedClassMapping.put(List.class,           RedissonList.class);
+        SUPPORTED_CLASS_MAPPING.put(SortedSet.class,      RedissonSortedSet.class);
+        SUPPORTED_CLASS_MAPPING.put(Set.class,            RedissonSet.class);
+        SUPPORTED_CLASS_MAPPING.put(ConcurrentMap.class,  RedissonMap.class);
+        SUPPORTED_CLASS_MAPPING.put(Map.class,            RedissonMap.class);
+        SUPPORTED_CLASS_MAPPING.put(BlockingDeque.class,  RedissonBlockingDeque.class);
+        SUPPORTED_CLASS_MAPPING.put(Deque.class,          RedissonDeque.class);
+        SUPPORTED_CLASS_MAPPING.put(BlockingQueue.class,  RedissonBlockingQueue.class);
+        SUPPORTED_CLASS_MAPPING.put(Queue.class,          RedissonQueue.class);
+        SUPPORTED_CLASS_MAPPING.put(List.class,           RedissonList.class);
+        
+        fillCodecMethods(REFERENCES, RedissonClient.class, RObject.class);
+        fillCodecMethods(REFERENCES, RedissonReactiveClient.class, RObjectReactive.class);
+        fillCodecMethods(REFERENCES, RedissonRxClient.class, RObjectRx.class);
     }
 
     private final Config config;
@@ -101,16 +103,11 @@ public class RedissonObjectBuilder {
         }
     }
     
-    private static final Map<Class<?>, CodecMethodRef> references = new HashMap<Class<?>, CodecMethodRef>();
-    
     private final ReferenceCodecProvider codecProvider = new DefaultReferenceCodecProvider();
     
     public RedissonObjectBuilder(Config config) {
         super();
         this.config = config;
-        fillCodecMethods(references, RedissonClient.class, RObject.class);
-        fillCodecMethods(references, RedissonReactiveClient.class, RObjectReactive.class);
-        fillCodecMethods(references, RedissonRxClient.class, RObjectRx.class);
     }
 
     public ReferenceCodecProvider getReferenceCodecProvider() {
@@ -131,7 +128,7 @@ public class RedissonObjectBuilder {
         try {
             if (mappedClass != null) {
                 Codec fieldCodec = getFieldCodec(clazz, mappedClass, fieldName);
-                NamingScheme fieldNamingScheme = getFieldNamingScheme(clazz, fieldName, fieldCodec);
+                NamingScheme fieldNamingScheme = getNamingScheme(clazz, fieldCodec);
                 String referenceName = fieldNamingScheme.getFieldReferenceName(clazz, id, mappedClass, fieldName, null);
                 
                 return createRObject(redisson, mappedClass, referenceName, fieldCodec);
@@ -156,21 +153,23 @@ public class RedissonObjectBuilder {
         }
     }
     
-    /**
-     * WARNING: rEntity has to be the class of @This object.
-     */
-    private NamingScheme getFieldNamingScheme(Class<?> rEntity, String fieldName, Codec c) throws Exception {
-        if (!namingSchemeCache.containsKey(fieldName)) {
-            REntity anno = ClassUtils.getAnnotation(rEntity, REntity.class);
-            namingSchemeCache.putIfAbsent(fieldName, anno.namingScheme()
-                    .getDeclaredConstructor(Codec.class)
-                    .newInstance(c));
+    public NamingScheme getNamingScheme(Class<?> entityClass) {
+        REntity anno = ClassUtils.getAnnotation(entityClass, REntity.class);
+        Codec codec = codecProvider.getCodec(anno, entityClass, config);
+        return getNamingScheme(entityClass, codec);
+    }
+    
+    public NamingScheme getNamingScheme(Class<?> rEntity, Codec c) {
+        REntity anno = ClassUtils.getAnnotation(rEntity, REntity.class);
+        try {
+            return anno.namingScheme().getDeclaredConstructor(Codec.class).newInstance(c);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(e);
         }
-        return namingSchemeCache.get(fieldName);
     }
 
     private Class<? extends RObject> getMappedClass(Class<?> cls) {
-        for (Entry<Class<?>, Class<? extends RObject>> entrySet : supportedClassMapping.entrySet()) {
+        for (Entry<Class<?>, Class<? extends RObject>> entrySet : SUPPORTED_CLASS_MAPPING.entrySet()) {
             if (entrySet.getKey().isAssignableFrom(cls)) {
                 return entrySet.getValue();
             }
@@ -178,16 +177,16 @@ public class RedissonObjectBuilder {
         return null;
     }
     
-    private void fillCodecMethods(Map<Class<?>, CodecMethodRef> b, Class<?> clientClazz, Class<?> objectClazz) {
+    private static void fillCodecMethods(Map<Class<?>, CodecMethodRef> map, Class<?> clientClazz, Class<?> objectClazz) {
         for (Method method : clientClazz.getDeclaredMethods()) {
             if (!method.getReturnType().equals(Void.TYPE)
                     && objectClazz.isAssignableFrom(method.getReturnType())
                     && method.getName().startsWith("get")) {
                 Class<?> cls = method.getReturnType();
-                if (!b.containsKey(cls)) {
-                    b.put(cls, new CodecMethodRef());
+                if (!map.containsKey(cls)) {
+                    map.put(cls, new CodecMethodRef());
                 }
-                CodecMethodRef builder = b.get(cls);
+                CodecMethodRef builder = map.get(cls);
                 if (method.getParameterTypes().length == 2 //first param is name, second param is codec.
                         && Codec.class.isAssignableFrom(method.getParameterTypes()[1])) {
                     builder.customCodecMethod = method;
@@ -203,10 +202,8 @@ public class RedissonObjectBuilder {
         if (type != null) {
             if (ClassUtils.isAnnotationPresent(type, REntity.class)) {
                 RedissonLiveObjectService liveObjectService = (RedissonLiveObjectService) redisson.getLiveObjectService();
-                REntity anno = ClassUtils.getAnnotation(type, REntity.class);
-                NamingScheme ns = anno.namingScheme()
-                        .getDeclaredConstructor(Codec.class)
-                        .newInstance(codecProvider.getCodec(anno, type, redisson.getConfig()));
+                
+                NamingScheme ns = getNamingScheme(type);
                 Object id = ns.resolveId(rr.getKeyName());
                 return liveObjectService.createLiveObject(type, id);
             }
@@ -219,16 +216,17 @@ public class RedissonObjectBuilder {
             ReferenceCodecProvider codecProvider)
             throws IllegalAccessException, InvocationTargetException, Exception, ClassNotFoundException {
         if (type != null) {
-            CodecMethodRef b = references.get(type);
+            CodecMethodRef b = REFERENCES.get(type);
             if (b == null && type.getInterfaces().length > 0) {
                 type = type.getInterfaces()[0];
             }
-            b = references.get(type);
+            b = REFERENCES.get(type);
             if (b != null) {
                 Method builder = b.get(isDefaultCodec(rr));
-                return (isDefaultCodec(rr)
-                        ? builder.invoke(redisson, rr.getKeyName())
-                                : builder.invoke(redisson, rr.getKeyName(), codecProvider.getCodec(rr.getCodecType())));
+                if (isDefaultCodec(rr)) {
+                    return builder.invoke(redisson, rr.getKeyName());
+                }
+                return builder.invoke(redisson, rr.getKeyName(), codecProvider.getCodec(rr.getCodecType()));
             }
         }
         throw new ClassNotFoundException("No RObject is found to match class type of " + rr.getTypeName() + " with codec type of " + rr.getCodecName());
@@ -262,7 +260,7 @@ public class RedissonObjectBuilder {
         if (object instanceof RObject && !(object instanceof RLiveObject)) {
             Class<?> clazz = object.getClass().getInterfaces()[0];
             
-            RObject rObject = ((RObject) object);
+            RObject rObject = (RObject) object;
             if (rObject.getCodec() != null) {
                 codecProvider.registerCodec((Class) rObject.getCodec().getClass(), rObject.getCodec());
             }
@@ -271,7 +269,7 @@ public class RedissonObjectBuilder {
         if (object instanceof RObjectReactive && !(object instanceof RLiveObject)) {
             Class<?> clazz = object.getClass().getInterfaces()[0];
 
-            RObjectReactive rObject = ((RObjectReactive) object);
+            RObjectReactive rObject = (RObjectReactive) object;
             if (rObject.getCodec() != null) {
                 codecProvider.registerCodec((Class) rObject.getCodec().getClass(), rObject.getCodec());
             }
@@ -281,10 +279,7 @@ public class RedissonObjectBuilder {
         try {
             if (object instanceof RLiveObject) {
                 Class<? extends Object> rEntity = object.getClass().getSuperclass();
-                REntity anno = ClassUtils.getAnnotation(rEntity, REntity.class);
-                NamingScheme ns = anno.namingScheme()
-                        .getDeclaredConstructor(Codec.class)
-                        .newInstance(codecProvider.getCodec(anno, (Class) rEntity, config));
+                NamingScheme ns = getNamingScheme(rEntity);
                 String name = Introspectior
                         .getFieldsWithAnnotation(rEntity, RId.class)
                         .getOnly().getName();
@@ -302,14 +297,24 @@ public class RedissonObjectBuilder {
     public <T extends RObject, K extends Codec> T createRObject(RedissonClient redisson, Class<T> expectedType, String name, K codec) throws Exception {
         List<Class<?>> interfaces = Arrays.asList(expectedType.getInterfaces());
         for (Class<?> iType : interfaces) {
-            if (references.containsKey(iType)) {// user cache to speed up things a little.
-                Method builder = references.get(iType).get(codec != null);
-                return (T) (codec != null
-                        ? builder.invoke(redisson, name)
-                        : builder.invoke(redisson, name, codec));
+            if (REFERENCES.containsKey(iType)) {// user cache to speed up things a little.
+                Method builder = REFERENCES.get(iType).get(codec != null);
+                if (codec != null) {
+                    return (T) builder.invoke(redisson, name);
+                }
+                return (T) builder.invoke(redisson, name, codec);
             }
         }
-        throw new ClassNotFoundException("No RObject is found to match class type of " + (expectedType != null ? expectedType.getName() : "null") + " with codec type of " + (codec != null ? codec.getClass().getName() : "null"));
+        
+        String type = null;
+        if (expectedType != null) {
+            type = expectedType.getName();
+        }
+        String codecName = null;
+        if (codec != null) {
+            codecName = codec.getClass().getName();
+        }
+        throw new ClassNotFoundException("No RObject is found to match class type of " + type + " with codec type of " + codecName);
     }
     
 }
