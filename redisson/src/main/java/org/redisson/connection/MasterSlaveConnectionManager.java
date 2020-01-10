@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 
+import org.redisson.ElementsSubscribeService;
 import org.redisson.Version;
 import org.redisson.api.NodeType;
 import org.redisson.api.RFuture;
@@ -113,7 +114,7 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
         }
     };
 
-    protected final UUID id;
+    protected final String id;
     
     public static final int MAX_SLOT = 16384;
 
@@ -151,7 +152,9 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
     private final Config cfg;
 
     protected final AddressResolverGroup<InetSocketAddress> resolverGroup;
-    
+
+    private final ElementsSubscribeService elementsSubscribeService = new ElementsSubscribeService(this);
+
     private PublishSubscribeService subscribeService;
     
     private final Map<Object, RedisConnection> nodeConnections = new ConcurrentHashMap<>();
@@ -165,7 +168,7 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
     }
 
     protected MasterSlaveConnectionManager(Config cfg, UUID id) {
-        this.id = id;
+        this.id = id.toString();
         Version.logVersion();
 
         if (cfg.getTransportMode() == TransportMode.EPOLL) {
@@ -282,22 +285,27 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
         return result;
     }
     
-    public UUID getId() {
+    @Override
+    public String getId() {
         return id;
     }
     
+    @Override
     public boolean isClusterMode() {
         return false;
     }
     
+    @Override
     public CommandSyncService getCommandExecutor() {
         return commandExecutor;
     }
 
+    @Override
     public IdleConnectionWatcher getConnectionWatcher() {
         return connectionWatcher;
     }
 
+    @Override
     public Config getCfg() {
         return cfg;
     }
@@ -329,7 +337,7 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
             minTimeout = 100;
         }
         
-        timer = new HashedWheelTimer(Executors.defaultThreadFactory(), minTimeout, TimeUnit.MILLISECONDS, 1024, false);
+        timer = new HashedWheelTimer(new DefaultThreadFactory("redisson-timer"), minTimeout, TimeUnit.MILLISECONDS, 1024, false);
         
         connectionWatcher = new IdleConnectionWatcher(this, config);
         subscribeService = new PublishSubscribeService(this, config);
@@ -491,7 +499,7 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
         return null;
     }
     
-    private MasterSlaveEntry getEntry(RedisURI addr) {
+    protected MasterSlaveEntry getEntry(RedisURI addr) {
         for (MasterSlaveEntry entry : client2entry.values()) {
             if (RedisURI.compare(entry.getClient().getAddr(), addr)) {
                 return entry;
@@ -556,8 +564,7 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
     public RFuture<RedisConnection> connectionWriteOp(NodeSource source, RedisCommand<?> command) {
         MasterSlaveEntry entry = getEntry(source);
         if (entry == null) {
-            RedisNodeNotFoundException ex = new RedisNodeNotFoundException("Node: " + source + " hasn't been discovered yet");
-            return RedissonPromise.newFailedFuture(ex);
+            return createNodeNotFoundFuture(source);
         }
         // fix for https://github.com/redisson/redisson/issues/1548
         if (source.getRedirect() != null 
@@ -587,8 +594,7 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
     public RFuture<RedisConnection> connectionReadOp(NodeSource source, RedisCommand<?> command) {
         MasterSlaveEntry entry = getEntry(source);
         if (entry == null) {
-            RedisNodeNotFoundException ex = new RedisNodeNotFoundException("Node: " + source + " hasn't been discovered yet");
-            return RedissonPromise.newFailedFuture(ex);
+            return createNodeNotFoundFuture(source);
         }
 
         if (source.getRedirect() != null) {
@@ -599,6 +605,16 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
         }
         
         return entry.connectionReadOp(command);
+    }
+
+    protected RFuture<RedisConnection> createNodeNotFoundFuture(NodeSource source) {
+        RedisNodeNotFoundException ex;
+        if (source.getSlot() != null && source.getAddr() == null && source.getRedisClient() == null) {
+            ex = new RedisNodeNotFoundException("Node for slot: " + source.getSlot() + " hasn't been discovered yet. Check cluster slots coverage using CLUSTER NODES command");
+        } else {
+            ex = new RedisNodeNotFoundException("Node: " + source + " hasn't been discovered yet.");
+        }
+        return RedissonPromise.newFailedFuture(ex);
     }
 
     @Override
@@ -653,7 +669,6 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
         result.awaitUninterruptibly(timeout, unit);
         resolverGroup.close();
 
-        timer.stop();
         shutdownLatch.close();
         shutdownPromise.trySuccess(null);
         shutdownLatch.awaitUninterruptibly();
@@ -662,6 +677,7 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
             group.shutdownGracefully(quietPeriod, timeout, unit).syncUninterruptibly();
         }
         
+        timer.stop();
     }
 
     @Override
@@ -684,8 +700,11 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
         try {
             return timer.newTimeout(task, delay, unit);
         } catch (IllegalStateException e) {
-            // timer is shutdown
-            return DUMMY_TIMEOUT;
+            if (isShuttingDown()) {
+                return DUMMY_TIMEOUT;
+            }
+            
+            throw e;
         }
     }
 
@@ -711,7 +730,11 @@ public class MasterSlaveConnectionManager implements ConnectionManager {
     public PublishSubscribeService getSubscribeService() {
         return subscribeService;
     }
-    
+
+    public ElementsSubscribeService getElementsSubscribeService() {
+        return elementsSubscribeService;
+    }
+
     public ExecutorService getExecutor() {
         return executor;
     }

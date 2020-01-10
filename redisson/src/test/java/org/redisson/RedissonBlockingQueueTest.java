@@ -15,6 +15,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.awaitility.Awaitility;
+import org.awaitility.Duration;
 import org.junit.Assert;
 import org.junit.Test;
 import org.redisson.ClusterRunner.ClusterProcesses;
@@ -121,7 +123,7 @@ public class RedissonBlockingQueueTest extends RedissonQueueTest {
         
         t.join();
         
-        await().atMost(7, TimeUnit.SECONDS).until(() -> executed.get());
+        await().atMost(7, TimeUnit.SECONDS).untilTrue(executed);
         
         redisson.shutdown();
         runner.stop();
@@ -277,6 +279,55 @@ public class RedissonBlockingQueueTest extends RedissonQueueTest {
         runner.stop();
         
         redisson.shutdown();
+    }
+    
+    @Test
+    public void testTakeInterrupted() throws InterruptedException {
+        final AtomicBoolean interrupted = new AtomicBoolean();
+        
+        Thread t = new Thread() {
+            public void run() {
+                try {
+                    RBlockingQueue<Integer> queue1 = getQueue(redisson);
+                    queue1.take();
+                } catch (InterruptedException e) {
+                    interrupted.set(true);
+                }
+            };
+        };
+
+        t.start();
+        t.join(1000);
+
+        t.interrupt();
+        Awaitility.await().atMost(Duration.ONE_SECOND).untilTrue(interrupted);
+
+        RBlockingQueue<Integer> q = getQueue(redisson);
+        q.add(1);
+        Thread.sleep(1000);
+        assertThat(q.contains(1)).isTrue();
+    }
+
+    @Test
+    public void testPollInterrupted() throws InterruptedException {
+        final AtomicBoolean interrupted = new AtomicBoolean();
+        
+        Thread t = new Thread() {
+            public void run() {
+                try {
+                    RBlockingQueue<Integer> queue1 = getQueue(redisson);
+                    queue1.poll(10, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    interrupted.set(true);
+                }
+            };
+        };
+        
+        t.start();
+        t.join(1000);
+        
+        t.interrupt();
+        Awaitility.await().atMost(Duration.ONE_SECOND).untilTrue(interrupted);
     }
     
     @Test
@@ -588,4 +639,31 @@ public class RedissonBlockingQueueTest extends RedissonQueueTest {
             Assert.fail(e.getLocalizedMessage());
         }
     }
+
+    @Test
+    public void testSubscribeOnElements() throws InterruptedException {
+        RBlockingQueue<Integer> q = redisson.getBlockingQueue("test");
+        Set<Integer> values = new HashSet<>();
+        int listnerId = q.subscribeOnElements(v -> {
+            values.add(v);
+        });
+
+        for (int i = 0; i < 10; i++) {
+            q.add(i);
+        }
+
+        Awaitility.await().atMost(Duration.ONE_SECOND).until(() -> {
+            return values.size() == 10;
+        });
+
+        q.unsubscribe(listnerId);
+
+        q.add(11);
+        q.add(12);
+
+        Thread.sleep(1000);
+
+        assertThat(values).hasSize(10);
+    }
+
 }

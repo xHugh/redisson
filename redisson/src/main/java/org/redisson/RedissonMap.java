@@ -53,6 +53,7 @@ import org.redisson.client.protocol.convertor.NumberConvertor;
 import org.redisson.client.protocol.decoder.MapScanResult;
 import org.redisson.command.CommandAsyncExecutor;
 import org.redisson.connection.decoder.MapGetAllDecoder;
+import org.redisson.iterator.RedissonMapIterator;
 import org.redisson.mapreduce.RedissonMapReduce;
 import org.redisson.misc.RPromise;
 import org.redisson.misc.RedissonPromise;
@@ -731,10 +732,6 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
         return result;
     }
     
-    private RFuture<V> externalPutAsync(K key, V value) {
-        return putAsync(key, value);
-    }
-    
     @Override
     public void loadAll(boolean replaceExistingValues, int parallelism) {
         get(loadAllAsync(replaceExistingValues, parallelism));
@@ -896,7 +893,6 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
                 + "return v",
                 Collections.singletonList(getName(key)), encodeMapKey(key), encodeMapValue(value));
     }
-
 
     @Override
     public RFuture<V> removeAsync(K key) {
@@ -1268,7 +1264,7 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
                     return;
                 }
                     
-                externalPutAsync(key, value).onComplete((res, e) -> {
+                putOperationAsync(key, value).onComplete((res, e) -> {
                     if (e != null) {
                         lock.unlockAsync(threadId);
                         result.tryFailure(e);

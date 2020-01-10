@@ -18,49 +18,7 @@ package org.redisson;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import org.redisson.api.BatchOptions;
-import org.redisson.api.ClusterNode;
-import org.redisson.api.MapOptions;
-import org.redisson.api.Node;
-import org.redisson.api.NodesGroup;
-import org.redisson.api.RAtomicDoubleRx;
-import org.redisson.api.RAtomicLongRx;
-import org.redisson.api.RBatchRx;
-import org.redisson.api.RBitSetRx;
-import org.redisson.api.RBlockingDequeRx;
-import org.redisson.api.RBlockingQueueRx;
-import org.redisson.api.RBucketRx;
-import org.redisson.api.RDequeRx;
-import org.redisson.api.RGeoRx;
-import org.redisson.api.RHyperLogLogRx;
-import org.redisson.api.RKeysRx;
-import org.redisson.api.RLexSortedSetRx;
-import org.redisson.api.RListMultimapRx;
-import org.redisson.api.RListRx;
-import org.redisson.api.RLock;
-import org.redisson.api.RLockRx;
-import org.redisson.api.RMapCacheRx;
-import org.redisson.api.RMapRx;
-import org.redisson.api.RPatternTopicRx;
-import org.redisson.api.RPermitExpirableSemaphoreRx;
-import org.redisson.api.RQueueRx;
-import org.redisson.api.RRateLimiterRx;
-import org.redisson.api.RReadWriteLockRx;
-import org.redisson.api.RRemoteService;
-import org.redisson.api.RRingBufferRx;
-import org.redisson.api.RScoredSortedSetRx;
-import org.redisson.api.RScriptRx;
-import org.redisson.api.RSemaphoreRx;
-import org.redisson.api.RSetCache;
-import org.redisson.api.RSetCacheRx;
-import org.redisson.api.RSetMultimapRx;
-import org.redisson.api.RSetRx;
-import org.redisson.api.RStreamRx;
-import org.redisson.api.RTopic;
-import org.redisson.api.RTopicRx;
-import org.redisson.api.RTransactionRx;
-import org.redisson.api.RedissonRxClient;
-import org.redisson.api.TransactionOptions;
+import org.redisson.api.*;
 import org.redisson.client.codec.Codec;
 import org.redisson.config.Config;
 import org.redisson.config.ConfigSupport;
@@ -176,6 +134,11 @@ public class RedissonRx implements RedissonRxClient {
     @Override
     public RLockRx getRedLock(RLock... locks) {
         return RxProxyBuilder.create(commandExecutor, new RedissonRedLock(locks), RLockRx.class);
+    }
+
+    @Override
+    public RCountDownLatchRx getCountDownLatch(String name) {
+        return RxProxyBuilder.create(commandExecutor, new RedissonCountDownLatch(commandExecutor, name), RCountDownLatchRx.class);
     }
 
     @Override
@@ -412,11 +375,9 @@ public class RedissonRx implements RedissonRxClient {
 
     @Override
     public RRemoteService getRemoteService(String name, Codec codec) {
-        String executorId;
-        if (codec == connectionManager.getCodec()) {
-            executorId = connectionManager.getId().toString();
-        } else {
-            executorId = connectionManager.getId() + ":" + name;
+        String executorId = connectionManager.getId();
+        if (codec != connectionManager.getCodec()) {
+            executorId = executorId + ":" + name;
         }
         return new RedissonRemoteService(codec, name, commandExecutor, executorId, responses);
     }
@@ -539,6 +500,11 @@ public class RedissonRx implements RedissonRxClient {
         RedissonBlockingDeque<V> deque = new RedissonBlockingDeque<V>(codec, commandExecutor, name, null);
         return RxProxyBuilder.create(commandExecutor, deque, 
                 new RedissonBlockingDequeRx<V>(deque), RBlockingDequeRx.class);
+    }
+
+    @Override
+    public String getId() {
+        return commandExecutor.getConnectionManager().getId();
     }
     
 }

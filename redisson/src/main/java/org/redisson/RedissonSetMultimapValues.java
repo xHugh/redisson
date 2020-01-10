@@ -38,12 +38,12 @@ import org.redisson.client.codec.Codec;
 import org.redisson.client.protocol.RedisCommand;
 import org.redisson.client.protocol.RedisCommand.ValueType;
 import org.redisson.client.protocol.RedisCommands;
-import org.redisson.client.protocol.decoder.ListMultiDecoder;
+import org.redisson.client.protocol.decoder.ListMultiDecoder2;
 import org.redisson.client.protocol.decoder.ListScanResult;
 import org.redisson.client.protocol.decoder.ListScanResultReplayDecoder;
-import org.redisson.client.protocol.decoder.LongMultiDecoder;
 import org.redisson.client.protocol.decoder.ObjectListReplayDecoder;
 import org.redisson.command.CommandAsyncExecutor;
+import org.redisson.iterator.RedissonBaseIterator;
 
 /**
  * Set based Multimap Cache values holder
@@ -55,7 +55,7 @@ import org.redisson.command.CommandAsyncExecutor;
 public class RedissonSetMultimapValues<V> extends RedissonExpirable implements RSet<V> {
 
     private static final RedisCommand<ListScanResult<Object>> EVAL_SSCAN = new RedisCommand<ListScanResult<Object>>("EVAL", 
-                new ListMultiDecoder(new LongMultiDecoder(), new ObjectListReplayDecoder(), new ListScanResultReplayDecoder()), ValueType.MAP_VALUE);
+                new ListMultiDecoder2(new ListScanResultReplayDecoder(), new ObjectListReplayDecoder()), ValueType.MAP_VALUE);
     
     private final RSet<V> set;
     private final Object key;

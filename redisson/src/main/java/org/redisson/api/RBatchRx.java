@@ -15,11 +15,8 @@
  */
 package org.redisson.api;
 
-import java.util.concurrent.TimeUnit;
-
-import org.redisson.client.codec.Codec;
-
 import io.reactivex.Maybe;
+import org.redisson.client.codec.Codec;
 
 /**
  * RxJava2 interface for Redis pipeline feature.
@@ -367,41 +364,5 @@ public interface RBatchRx {
      * @return List with result object for each command
      */
     Maybe<BatchResult<?>> execute();
-
-    /*
-     * Use BatchOptions#atomic
-     */
-    @Deprecated
-    RBatchRx atomic();
-    
-    /*
-     * Use BatchOptions#skipResult
-     */
-    @Deprecated
-    RBatchRx skipResult();
-
-    /*
-     * Use BatchOptions#syncSlaves
-     */
-    @Deprecated
-    RBatchRx syncSlaves(int slaves, long timeout, TimeUnit unit);
-    
-    /*
-     * Use BatchOptions#responseTimeout
-     */
-    @Deprecated
-    RBatchRx timeout(long timeout, TimeUnit unit);
-
-    /*
-     * Use BatchOptions#retryInterval
-     */
-    @Deprecated
-    RBatchRx retryInterval(long retryInterval, TimeUnit unit);
-
-    /*
-     * Use BatchOptions#retryAttempts
-     */
-    @Deprecated
-    RBatchRx retryAttempts(int retryAttempts);
 
 }

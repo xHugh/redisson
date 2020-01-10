@@ -54,7 +54,7 @@ import io.netty.buffer.ByteBuf;
 public abstract class RedissonObject implements RObject {
 
     protected final CommandAsyncExecutor commandExecutor;
-    private String name;
+    protected String name;
     protected final Codec codec;
 
     public RedissonObject(Codec codec, CommandAsyncExecutor commandExecutor, String name) {
@@ -67,10 +67,6 @@ public abstract class RedissonObject implements RObject {
         this(commandExecutor.getConnectionManager().getCodec(), commandExecutor, name);
     }
 
-    protected boolean await(RFuture<?> future, long timeout, TimeUnit timeoutUnit) throws InterruptedException {
-        return commandExecutor.await(future, timeout, timeoutUnit);
-    }
-    
     public static String prefixName(String prefix, String name) {
         if (name.contains("{")) {
             return prefix + ":" + name;

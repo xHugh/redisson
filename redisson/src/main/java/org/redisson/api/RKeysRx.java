@@ -15,13 +15,12 @@
  */
 package org.redisson.api;
 
-import java.util.Collection;
-import java.util.concurrent.TimeUnit;
-
 import io.reactivex.Completable;
 import io.reactivex.Flowable;
 import io.reactivex.Maybe;
 import io.reactivex.Single;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * 
@@ -208,9 +207,6 @@ public interface RKeysRx {
      * @return slot number
      */
     Single<Integer> getSlot(String key);
-
-    @Deprecated
-    Single<Collection<String>> findKeysByPattern(String pattern);
 
     /**
      * Get random key

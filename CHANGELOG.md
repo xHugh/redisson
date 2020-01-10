@@ -4,6 +4,98 @@ Redisson Releases History
 
 Сonsider __[Redisson PRO](https://redisson.pro)__ version for advanced features and support by SLA.
 
+### 26-Dec-2019 - 3.12.0 released
+
+Feature - `RExecutorService` task id injection  
+Feature - `submit()` methods with ttl parameter added to `RExecutorService`  
+Feature - `schedule()` methods with timeToLive parameter added to `RScheduledExecutorService`  
+Feature - `MyBatis` cache implementation added  
+Feature - added implementation of `doSuspend` and `doResume` methods of Spring Transaction Manager  
+Feature - `WorkerOptions.taskTimeout` setting added  
+Feature - `RSemaphore.addPermits` method added  
+Feature - ability to define `TaskFailureListener`, `TaskFinishedListener`, `TaskStartedListener` and `TaskSuccessListener` task listeners with WorkerOptions object  
+
+Improvement - Default workers amount of `RExecutorService` set to 1
+
+Fixed - CommandDecoder throws NPE  
+Fixed - ReplicatedConnectionManager triggers reactivation of slaves with ip address instead of hostname (thanks to @f-sander)  
+Fixed - Reactive/Rxjava2 transaction doesn't unlock lock on rollback or commit  
+Fixed - Spring Transaction Manager doesn't handle Redisson `TransactionException`  
+Fixed - `RBuckets.get` throws NPE for non-existed buckets (thanks to @d10n)  
+Fixed - `RPermitExpirableSemaphore` does not expire  
+Fixed - `RedissonCacheStatisticsAutoConfiguration` should be conditional on CacheMeterBinderProvider presence (thanks to @ehontoria)  
+
+### 28-Nov-2019 - 3.11.6 released
+
+Feature - `RExecutorServiceAsync.cancelTaskAsync()` method added  
+Feature - `RExecutorService.hasTask()` method added  
+Feature - `RExecutorService.getTaskCount()` method added  
+Feature - `RMap` write-behind queue should be fault-tolerant  
+Feature - added `poll()` methods with limit to `RQueue`, `RDeque`, `RDelayedQueue` objects  
+Feature - `checkSlotsCoverage` setting added to cluster config  
+Feature - `RExecutorService.getTaskIds()` method added  
+Feature - `awaitAsync()` methods added to `RCountDownLatch` object  
+Feature - `RCountDownLatchRx` and `RCountDownLatchReactive` objects added  
+
+Fixed - channel subscription proccess in interruptible methods can't be interrupted  
+Fixed - `RMap.get()` method invokes `MapWriter.write()` method during value loading  
+Fixed - interruptible blocking methods couldn't be canceled  
+Fixed - ClusterNodesDecoder ignore unknown flag and avoid throwing exception  (thanks to ZhangJQ)  
+Fixed - `AsyncSemaphore` counter field should be volatile  
+Fixed - data encoding exception is not logged during remote call invocation  
+Fixed - Spring Data ZRangeByScore method doesn't support Infinity Double value  
+Fixed - spring metainfo files should be excluded in redisson-all artifact  
+Fixed - `RKeysRx.getKeys()` and `RKeysReactive.getKeys()` methods throws Exception  
+
+### 26-Oct-2019 - 3.11.5 released
+
+Feature - Automatic-Module-Name entry added to manifest file  
+Feature - `subscribeOnElements` method added to `RBlockingQueue` object  
+Feature - `subscribeOnFirstElements` and `subscribeOnLastElements` methods added to `RBlockingDeque` object  
+Feature - `subscribeOnFirstElements` and `subscribeOnLastElements` methods added to `RScoredSortedSet` object  
+Feature - support of Spring Data Redis 2.2.x  
+Feature - added batched persist method to `RLiveObjectService` object  
+Feature - Kryo5Codec implemented  
+
+Fixed - host details in Redis url cause extra bracket at the end  
+Fixed - RBuckets.get() method doesn't work with custom codec  
+Fixed - RLock.unlock() method hangs forever  
+Fixed - `RStream.trim` method throws exception  
+Fixed - Spring Data pubsub listeners executes multiple times  
+Fixed - Redis commands processing handler consumes 100% of CPU resources  
+
+### 24-Sep-2019 - 3.11.4 released
+
+Feature - support search by numeric fields in LiveObject search engine. Follow conditions are supported: `greater than on equal`, `greater than`, `lower than`, `lower than or equal`  
+
+Fixed - threads blocked waiting on CountDownLatch  
+Fixed - `rename` and `renamenx` methods of `RMultimap` interface aren't working  
+Fixed - memory leak caused by `FastThreadLocal` object used in `CodecDecoder`  
+Fixed - blocking queue methods don't re-throw `InterruptedException`  
+Fixed - `RExecutorService` tasks duplication after task retry event  
+Fixed - `Redisson.shutdown` method blocks calling thread  
+Fixed - Spring Boot default connection timeout is 0 seconds  
+Fixed - IPv6 handling in Sentinel manager (thanks to [AndreevDm](https://github.com/AndreevDm))  
+Fixed - `RMapCache.remainTimeToLive` method returns negative remain time  
+Fixed - `RBuckets.get` method doesn't work in Redis cluster mode  
+Fixed - wrong error message if Sentinel server has misconfiguration  
+
+### 30-Aug-2019 - 3.11.3 released  
+
+Feature - JBoss Marshalling codec implementation  
+Feature - support for Spring's `@Autowired`, `@Value` and JSR-330 `@Inject` annotations in ExecutorService tasks  
+Feature - SSL support for Sentinel mode  
+Feature - `sizeInMemory()` method added to `RObjectReactive` and `RObjectRx` interfaces  
+Feature - `getId()` method added to `RedissonClient`, `RedissonRxClient`, `RedissonReactiveClient` interfaces  
+
+Improvement - `useCache` parameter added to `FstCodec`  
+Improvement - URL object should be used for `sslKeystore` and `sslTruststore` settings  
+
+Fixed - `RedisTimeoutException` thrown if retryAttempts set to 0  
+Fixed - `RStream.readGroup` method doesn't work properly with `TypedJsonJacksonCodec`  
+Fixed - semaphore object is not deleted after `RLocalCachedMap.clearLocalCache` method invocation  
+Fixed - Redisson couldn't be shutdown if one of RBatch commands was canceled  
+
 ### 03-Aug-2019 - 3.11.2 released  
 
 Improvement - `RLiveObject` interface should extend `RExpirable`  

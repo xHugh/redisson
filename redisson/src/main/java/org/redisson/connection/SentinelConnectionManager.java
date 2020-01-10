@@ -82,6 +82,7 @@ public class SentinelConnectionManager extends MasterSlaveConnectionManager {
     private final Map<String, String> natMap;
 
     private boolean usePassword = false;
+    private String scheme;
 
     public SentinelConnectionManager(SentinelServersConfig cfg, Config config, UUID id) {
         super(config, id);
@@ -100,36 +101,26 @@ public class SentinelConnectionManager extends MasterSlaveConnectionManager {
         
         this.sentinelResolver = resolverGroup.getResolver(getGroup().next());
         
-        for (String address : cfg.getSentinelAddresses()) {
-            RedisURI addr = new RedisURI(address);
-            RedisClient client = createClient(NodeType.SENTINEL, addr, this.config.getConnectTimeout(), this.config.getRetryInterval() * this.config.getRetryAttempts(), null);
-            try {
-                RedisConnection c = client.connect();
-                try {
-                    c.sync(RedisCommands.PING);
-                } catch (RedisAuthRequiredException e) {
-                    usePassword = true;
-                }
-                client.shutdown();
-                break;
-            } catch (Exception e) {
-                // skip
-            }
-        }
+        checkAuth(cfg);
         
         for (String address : cfg.getSentinelAddresses()) {
             RedisURI addr = new RedisURI(address);
             if (NetUtil.createByteArrayFromIpAddressString(addr.getHost()) == null && !addr.getHost().equals("localhost")) {
-                sentinelHosts.add(convert(addr.getHost(), "" + addr.getPort()));
+                sentinelHosts.add(addr);
             }
             
-            RedisClient client = createClient(NodeType.SENTINEL, addr, this.config.getConnectTimeout(), this.config.getRetryInterval() * this.config.getRetryAttempts(), null);
+            RedisClient client = createClient(NodeType.SENTINEL, addr, this.config.getConnectTimeout(), this.config.getTimeout(), null);
             try {
-                RedisConnection connection = client.connect();
-                if (!connection.isActive()) {
+                RedisConnection connection = null;
+                try {
+                    connection = client.connect();
+                    if (!connection.isActive()) {
+                        continue;
+                    }
+                } catch (RedisConnectionException e) {
                     continue;
                 }
-
+                
                 List<String> master = connection.sync(RedisCommands.SENTINEL_GET_MASTER_ADDR_BY_NAME, cfg.getMasterName());
                 if (master.isEmpty()) {
                     throw new RedisConnectionException("Master node is undefined! SENTINEL GET-MASTER-ADDR-BY-NAME command returns empty result!");
@@ -187,8 +178,6 @@ public class SentinelConnectionManager extends MasterSlaveConnectionManager {
                 }
 
                 break;
-            } catch (RedisConnectionException e) {
-                log.warn("Can't connect to sentinel server. {}", e.getMessage());
             } finally {
                 client.shutdownAsync();
             }
@@ -210,6 +199,41 @@ public class SentinelConnectionManager extends MasterSlaveConnectionManager {
         initSingleEntry();
         
         scheduleChangeCheck(cfg, null);
+    }
+
+    private void checkAuth(SentinelServersConfig cfg) {
+        boolean connected = false;
+        
+        for (String address : cfg.getSentinelAddresses()) {
+            RedisURI addr = new RedisURI(address);
+            scheme = addr.getScheme();
+            RedisClient client = createClient(NodeType.SENTINEL, addr, this.config.getConnectTimeout(), this.config.getTimeout(), null);
+            try {
+                RedisConnection c = client.connect();
+                connected = true;
+                try {
+                    c.sync(RedisCommands.PING);
+                } catch (RedisAuthRequiredException e) {
+                    usePassword = true;
+                }
+                break;
+            } catch (RedisConnectionException e) {
+                log.warn("Can't connect to sentinel server. {}", e.getMessage());
+            } catch (Exception e) {
+                // skip
+            } finally {
+                client.shutdown();
+            }
+        }
+        
+        if (!connected) {
+            stopThreads();
+            StringBuilder list = new StringBuilder();
+            for (String address : cfg.getSentinelAddresses()) {
+                list.append(address).append(", ");
+            }
+            throw new RedisConnectionException("Unable to connect to Redis sentinel servers: " + list);
+        }
     }
     
     @Override
@@ -477,13 +501,14 @@ public class SentinelConnectionManager extends MasterSlaveConnectionManager {
         if (host.contains(":")){
             String pureHost = host.replaceAll("[\\[\\]]", "");
             host = applyNatMap(pureHost);
-            if (host.contains(":")) {
+            if (host.contains(":") && !host.startsWith("[")) {
                 host = "[" + host + "]";
             }
         } else {
             host = applyNatMap(host);
         }
-        return "redis://" + host + ":" + port;
+        
+        return scheme + "://" + host + ":" + port;
     }
 
     @Override
@@ -502,7 +527,7 @@ public class SentinelConnectionManager extends MasterSlaveConnectionManager {
             return RedissonPromise.newSucceededFuture(null);
         }
         
-        RedisClient client = createClient(NodeType.SENTINEL, addr, c.getConnectTimeout(), c.getRetryInterval() * c.getRetryAttempts(), null);
+        RedisClient client = createClient(NodeType.SENTINEL, addr, c.getConnectTimeout(), c.getTimeout(), null);
         RPromise<Void> result = new RedissonPromise<Void>();
         RFuture<InetSocketAddress> future = client.resolveAddr();
         future.onComplete((res, e) -> {
@@ -518,7 +543,7 @@ public class SentinelConnectionManager extends MasterSlaveConnectionManager {
                     return;
                 }
 
-                RFuture<String> r = connection.async(config.getTimeout(), RedisCommands.PING);
+                RFuture<String> r = connection.async(RedisCommands.PING);
                 r.onComplete((resp, exc) -> {
                     if (exc != null) {
                         result.tryFailure(exc);

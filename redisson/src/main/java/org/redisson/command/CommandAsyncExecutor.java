@@ -17,7 +17,6 @@ package org.redisson.command;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import org.redisson.SlotCallback;
 import org.redisson.api.RFuture;
@@ -53,11 +52,13 @@ public interface CommandAsyncExecutor {
     
     <V> RedisException convertException(RFuture<V> future);
 
-    boolean await(RFuture<?> future, long timeout, TimeUnit timeoutUnit) throws InterruptedException;
-    
     void syncSubscription(RFuture<?> future);
-    
+
+    void syncSubscriptionInterrupted(RFuture<?> future) throws InterruptedException;
+
     <V> V get(RFuture<V> future);
+    
+    <V> V getInterrupted(RFuture<V> future) throws InterruptedException;
 
     <T, R> RFuture<R> writeAsync(MasterSlaveEntry entry, Codec codec, RedisCommand<T> command, Object... params);
     
@@ -115,4 +116,8 @@ public interface CommandAsyncExecutor {
     
     <V> RFuture<V> pollFromAnyAsync(String name, Codec codec, RedisCommand<Object> command, long secondsTimeout, String... queueNames);
 
+    <T, R> RFuture<R> readBatchedAsync(Codec codec, RedisCommand<T> command, SlotCallback<T, R> callback, String... keys);
+    
+    <T, R> RFuture<R> writeBatchedAsync(Codec codec, RedisCommand<T> command, SlotCallback<T, R> callback, String... keys);
+    
 }

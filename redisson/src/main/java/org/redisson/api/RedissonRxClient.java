@@ -141,7 +141,15 @@ public interface RedissonRxClient {
      * @return RedLock object
      */
     RLockRx getRedLock(RLock... locks);
-    
+
+    /**
+     * Returns CountDownLatch instance by name.
+     *
+     * @param name - name of object
+     * @return CountDownLatch object
+     */
+    RCountDownLatchRx getCountDownLatch(String name);
+
     /**
      * Returns set-based cache instance by <code>name</code>.
      * Supports value eviction with a given TTL value.
@@ -726,4 +734,11 @@ public interface RedissonRxClient {
      */
     boolean isShuttingDown();
 
+    /**
+     * Returns id of this Redisson instance
+     * 
+     * @return id
+     */
+    String getId();
+    
 }

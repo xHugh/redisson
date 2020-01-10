@@ -2,7 +2,7 @@
 
 Integrates Redisson with Spring Boot library. Depends on [Spring Data Redis](https://github.com/redisson/redisson/tree/master/redisson-spring-data#spring-data-redis-integration) module.
 
-Supports Spring Boot 1.3.x, 1.4.x, 1.5.x, 2.0.x, 2.1.x
+Supports Spring Boot 1.3.x, 1.4.x, 1.5.x, 2.0.x, 2.1.x, 2.2.x
 
 <sub>Consider __[Redisson PRO](https://redisson.pro)__ version for advanced features and support by SLA.</sub>
 
@@ -16,14 +16,14 @@ Maven
      <dependency>
          <groupId>org.redisson</groupId>
          <artifactId>redisson-spring-boot-starter</artifactId>
-         <version>3.11.2</version>
+         <version>3.11.6</version>
      </dependency>
 ```
 
 Gradle
 
 ```groovy
-     compile 'org.redisson:redisson-spring-boot-starter:3.11.2'
+     compile 'org.redisson:redisson-spring-boot-starter:3.11.6'
 ```
 
 ### 2. Add settings into `application.settings` file
@@ -45,7 +45,7 @@ spring.redis.sentinel.nodes=
 
 # Redisson settings
 
-#path to redisson.yaml or redisson.json
+#path to config - redisson.yaml
 spring.redis.redisson.config=classpath:redisson.yaml
 ```
 

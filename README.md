@@ -1,9 +1,9 @@
 # Redisson - Redis Java client<br/>with features of In-Memory Data Grid
 
-[Quick start](https://github.com/redisson/redisson#quick-start) | [Documentation](https://github.com/redisson/redisson/wiki) | [Javadocs](http://www.javadoc.io/doc/org.redisson/redisson/3.11.0) | [Changelog](https://github.com/redisson/redisson/blob/master/CHANGELOG.md) | [Code examples](https://github.com/redisson/redisson-examples) | [FAQs](https://github.com/redisson/redisson/wiki/16.-FAQ) | [Report an issue](https://github.com/redisson/redisson/issues/new)
+[Quick start](https://github.com/redisson/redisson#quick-start) | [Documentation](https://github.com/redisson/redisson/wiki/Table-of-Content) | [Javadocs](http://www.javadoc.io/doc/org.redisson/redisson/3.12.0) | [Changelog](https://github.com/redisson/redisson/blob/master/CHANGELOG.md) | [Code examples](https://github.com/redisson/redisson-examples) | [FAQs](https://github.com/redisson/redisson/wiki/16.-FAQ) | [Report an issue](https://github.com/redisson/redisson/issues/new)
 
 Based on high-performance async and lock-free Java Redis client and [Netty](http://netty.io) framework.  
-JDK compatibility:  1.8 - 12, Android  
+JDK compatibility:  1.8 - 13, Android  
 
 ## Features
 
@@ -17,7 +17,7 @@ JDK compatibility:  1.8 - 12, Android
     1. automatic master, slave and sentinel servers discovery
     2. automatic status and topology update
 * Master with Slave Redis servers mode  
-* Single Redis server mode  
+* Single Redis server mode (also supports [Azure Redis Cache](https://azure.microsoft.com/en-us/services/cache/) and [Google Cloud Memorystore for Redis](https://cloud.google.com/memorystore/docs/redis/)) 
 * Thread-safe implementation  
 * [Reactive Streams](https://github.com/redisson/redisson/wiki/3.-operations-execution#32-reactive-way) API  
 * [RxJava2](https://github.com/redisson/redisson/wiki/3.-operations-execution#32-reactive-way) API  
@@ -33,18 +33,18 @@ JDK compatibility:  1.8 - 12, Android
     Lock, FairLock, MultiLock, RedLock, ReadWriteLock, Semaphore, PermitExpirableSemaphore, CountDownLatch
 * [Distributed services](https://github.com/redisson/redisson/wiki/9.-distributed-services)  
     Remote service, Live Object service, Executor service, Scheduler service, MapReduce service
-* [Spring Framework](https://github.com/redisson/redisson/wiki/14.-Integration%20with%20frameworks#141-spring-framework)
-* [Spring Cache](https://github.com/redisson/redisson/wiki/14.-Integration%20with%20frameworks/#142-spring-cache) implementation
-* [Spring Transaction API](https://github.com/redisson/redisson/wiki/14.-Integration-with-frameworks/#147-spring-transaction-manager) implementation
-* [Spring Data Redis](https://github.com/redisson/redisson/wiki/14.-Integration-with-frameworks/#148-spring-data-redis) integration
-* [Spring Boot Starter](https://github.com/redisson/redisson/wiki/14.-Integration-with-frameworks/#149-spring-boot-starter) implementation
-* [Hibernate Cache](https://github.com/redisson/redisson/wiki/14.-Integration%20with%20frameworks/#143-hibernate-cache) implementation
+* [Spring Framework](https://github.com/redisson/redisson/wiki/14.-Integration-with-frameworks/#141-spring-framework)
+* [Spring Cache](https://github.com/redisson/redisson/wiki/14.-Integration-with-frameworks/#142-spring-cache) implementation
+* [Spring Transaction API](https://github.com/redisson/redisson/wiki/14.-Integration-with-frameworks/#148-spring-transaction-manager) implementation
+* [Spring Data Redis](https://github.com/redisson/redisson/tree/master/redisson-spring-data) integration
+* [Spring Boot Starter](https://github.com/redisson/redisson/tree/master/redisson-spring-boot-starter) implementation
+* [Hibernate Cache](https://github.com/redisson/redisson/tree/master/redisson-hibernate) implementation
+* [MyBatis Cache](https://github.com/redisson/redisson/tree/master/redisson-mybatis) implementation
 * [Transactions API](https://github.com/redisson/redisson/wiki/10.-Additional-features#104-transactions)
-* [XA Transaction API](https://github.com/redisson/redisson/wiki/10.-additional-features/#105-xa-transactions) implementation
-* [JCache API (JSR-107)](https://github.com/redisson/redisson/wiki/14.-Integration%20with%20frameworks/#144-jcache-api-jsr-107-implementation) implementation
-* [Tomcat Session Manager](https://github.com/redisson/redisson/wiki/14.-Integration%20with%20frameworks#145-tomcat-redis-session-manager) implementation
-* [Spring Session](https://github.com/redisson/redisson/wiki/14.-Integration%20with%20frameworks/#146-spring-session) implementation
-* [Redis pipelining](https://github.com/redisson/redisson/wiki/10.-additional-features#102-execution-batches-of-commands) (command batches)
+* [JCache API (JSR-107)](https://github.com/redisson/redisson/wiki/14.-Integration-with-frameworks/#144-jcache-api-jsr-107-implementation) implementation
+* [Tomcat Session Manager](https://github.com/redisson/redisson/tree/master/redisson-tomcat) implementation
+* [Spring Session](https://github.com/redisson/redisson/wiki/14.-Integration-with-frameworks/#147-spring-session) implementation
+* [Redis pipelining](https://github.com/redisson/redisson/wiki/10.-additional-features#103-execution-batches-of-commands) (command batches)
 * Supports Android platform  
 * Supports auto-reconnection  
 * Supports failed to send command auto-retry  
@@ -103,12 +103,14 @@ Used by
     <dependency>
        <groupId>org.redisson</groupId>
        <artifactId>redisson</artifactId>
-       <version>3.11.2</version>
+       <version>3.12.0</version>
     </dependency>  
 
-
 #### Gradle
-    compile 'org.redisson:redisson:3.11.2'  
+    compile 'org.redisson:redisson:3.12.0'  
+
+#### SBT
+    libraryDependencies += "org.redisson" % "redisson" % "3.12.0"
 
 #### Java
 
@@ -158,7 +160,7 @@ RLockRx lockRx = redissonRx.getLock("myLock");
 // 4. Get Redis based ExecutorService
 RExecutorService executor = redisson.getExecutorService("myExecutorService");
 
-// over 30 different Redis based objects and services ...
+// over 50 Redis based Java objects and services ...
 
 ```
 
@@ -166,8 +168,8 @@ Consider __[Redisson PRO](https://redisson.pro)__ version for advanced features 
 
 ## Downloads
    
-[Redisson 3.11.2](https://repository.sonatype.org/service/local/artifact/maven/redirect?r=central-proxy&g=org.redisson&a=redisson&v=3.11.2&e=jar),
-[Redisson node 3.11.2](https://repository.sonatype.org/service/local/artifact/maven/redirect?r=central-proxy&g=org.redisson&a=redisson-all&v=3.11.2&e=jar)  
+[Redisson 3.12.0](https://repository.sonatype.org/service/local/artifact/maven/redirect?r=central-proxy&g=org.redisson&a=redisson&v=3.12.0&e=jar),
+[Redisson node 3.12.0](https://repository.sonatype.org/service/local/artifact/maven/redirect?r=central-proxy&g=org.redisson&a=redisson-all&v=3.12.0&e=jar)  
 
 ## FAQs
 

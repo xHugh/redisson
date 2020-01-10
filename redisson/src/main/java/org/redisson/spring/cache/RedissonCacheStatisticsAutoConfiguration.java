@@ -15,6 +15,7 @@
  */
 package org.redisson.spring.cache;
 
+import org.springframework.boot.actuate.metrics.cache.CacheMeterBinderProvider;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.cache.CacheAutoConfiguration;
@@ -23,8 +24,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import io.micrometer.core.instrument.binder.MeterBinder;
 
 /**
  *
@@ -36,8 +35,8 @@ import io.micrometer.core.instrument.binder.MeterBinder;
  */
 @Configuration
 @AutoConfigureAfter(CacheAutoConfiguration.class)
-@ConditionalOnBean(CacheManager.class)
-@ConditionalOnClass(MeterBinder.class)
+@ConditionalOnBean({CacheManager.class, RedissonCache.class})
+@ConditionalOnClass(CacheMeterBinderProvider.class)
 public class RedissonCacheStatisticsAutoConfiguration {
     
     @Bean
